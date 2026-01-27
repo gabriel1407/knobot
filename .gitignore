@@ -1,0 +1,9 @@
+.env
+.env.example
+backups
+media
+staticfiles
+db.sqlite3
+logs
+media
+env_django
