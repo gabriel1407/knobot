@@ -200,3 +200,6 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # AI Services
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+
+# Custom User Model
+AUTH_USER_MODEL = 'users.User'
