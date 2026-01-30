@@ -17,10 +17,8 @@ class VectorStore:
         Args:
             collection_name: Nombre de la colección en ChromaDB.
         """
-        self.client = chromadb.Client(Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory="./chroma_db"
-        ))
+        # Usar la nueva API de ChromaDB
+        self.client = chromadb.PersistentClient(path="./chroma_db")
         
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
