@@ -33,9 +33,13 @@ class Document(BaseModel):
     )
     title = models.CharField(max_length=255)
     content = models.TextField()
+    file = models.FileField(upload_to='documents/%Y/%m/%d/', blank=True, null=True)
     file_url = models.URLField(blank=True, null=True)
+    file_type = models.CharField(max_length=50, blank=True, null=True)
     embedding = models.JSONField(default=dict, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
+    is_indexed = models.BooleanField(default=False)
+    indexed_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         db_table = 'documents'

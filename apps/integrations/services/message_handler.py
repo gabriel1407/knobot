@@ -148,11 +148,71 @@ class MessageHandler:
             'platform': 'telegram'
         }
     
+    async def _process_with_rag(
+        self,
+        conversation_id: str,
+        user_message: str
+    ) -> Dict:
+        """
+        Procesa un mensaje con RAG.
+        ChatOrchestrator se encarga de guardar los mensajes.
+        
+        Args:
+            conversation_id: ID de la conversación
+            user_message: Mensaje del usuario
+            
+        Returns:
+            Diccionario con la respuesta y metadata
+        """
+        loop = asyncio.get_event_loop()
+        
+        def _process():
+            # ChatOrchestrator ya guarda los mensajes internamente
+            if AI_AVAILABLE:
+                result = self.chat_orchestrator.process_message(
+                    conversation_id=conversation_id,
+                    user_message=user_message,
+                    use_rag=True,
+                    n_context_docs=5
+                )
+                return result
+            else:
+                # Fallback: guardar manualmente y usar Gemini
+                from apps.chat.models import Conversation, Message
+                conversation = Conversation.objects.get(id=conversation_id)
+                
+                # Guardar mensaje del usuario
+                Message.objects.create(
+                    conversation=conversation,
+                    content=user_message,
+                    role='user'
+                )
+                
+                # Generar respuesta con Gemini
+                response_text = asyncio.run(
+                    self._generate_response_with_gemini_only(user_message)
+                )
+                
+                # Guardar respuesta del bot
+                bot_msg = Message.objects.create(
+                    conversation=conversation,
+                    content=response_text,
+                    role='assistant'
+                )
+                
+                return {
+                    'content': response_text,
+                    'message_id': str(bot_msg.id),
+                    'conversation_id': conversation_id
+                }
+        
+        return await loop.run_in_executor(None, _process)
+    
     async def _generate_response_with_gemini_only(self, message: str) -> str:
         """Genera respuesta usando solo Gemini sin RAG."""
         try:
             genai.configure(api_key=settings.GEMINI_API_KEY)
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             prompt = f"""Eres un asistente virtual de soporte técnico para un ISP (proveedor de internet).
 Responde de manera amigable, profesional y concisa.
@@ -242,25 +302,19 @@ Asistente:"""
         loop = asyncio.get_event_loop()
         
         def _get_or_create():
-            # Buscar por username de telegram en metadata
-            user = User.objects.filter(
-                username__startswith='telegram_'
-            ).filter(
-                username__contains=chat_id
-            ).first()
+            # Usar chat_id como identificador único
+            username_base = f"tg_{chat_id}"
+            email = f"{username_base}@knowbot.local"
             
-            if not user:
-                # Crear usuario
-                username_base = username or f"user_{chat_id}"
-                user_username = f"telegram_{username_base}"
-                email = f"{user_username}@knowbot.local"
-                
-                user = User.objects.create(
-                    username=user_username,
-                    email=email,
-                    first_name=full_name or username_base,
-                    role='customer'
-                )
+            # Usar get_or_create para evitar duplicados
+            user, created = User.objects.get_or_create(
+                username=username_base,
+                defaults={
+                    'email': email,
+                    'first_name': full_name or username or f"User {chat_id}",
+                    'role': 'customer'
+                }
+            )
             
             return user
         

@@ -4,6 +4,11 @@ from typing import List, Dict, Optional
 import uuid
 from django.conf import settings
 
+# Importar configuración para silenciar warnings de ChromaDB
+try:
+    from . import chromadb_config
+except ImportError:
+    pass
 
 class VectorStore:
     """
@@ -17,8 +22,12 @@ class VectorStore:
         Args:
             collection_name: Nombre de la colección en ChromaDB.
         """
-        # Usar la nueva API de ChromaDB
-        self.client = chromadb.PersistentClient(path="./chroma_db")
+        # Usar la nueva API de ChromaDB con telemetría desactivada
+        from chromadb.config import Settings
+        self.client = chromadb.PersistentClient(
+            path="./chroma_db",
+            settings=Settings(anonymized_telemetry=False)
+        )
         
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
@@ -34,12 +43,13 @@ class VectorStore:
     ) -> List[str]:
         """
         Agrega documentos a la base vectorial.
+        Verifica IDs existentes para evitar duplicados.
         
         Args:
-            documents: Lista de textos de documentos.
-            embeddings: Lista de embeddings correspondientes.
-            metadatas: Metadatos opcionales para cada documento.
-            ids: IDs opcionales para cada documento.
+            documents: Lista de documentos.
+            embeddings: Lista de embeddings.
+            metadatas: Metadatos opcionales.
+            ids: IDs opcionales para los documentos.
             
         Returns:
             Lista de IDs de los documentos agregados.
@@ -50,12 +60,34 @@ class VectorStore:
         if metadatas is None:
             metadatas = [{} for _ in documents]
         
-        self.collection.add(
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            ids=ids
-        )
+        # Verificar IDs existentes para evitar warnings
+        try:
+            existing = self.collection.get(ids=ids)
+            existing_ids = set(existing['ids']) if existing and 'ids' in existing else set()
+        except:
+            existing_ids = set()
+        
+        # Filtrar solo documentos nuevos
+        new_docs = []
+        new_embeddings = []
+        new_metadatas = []
+        new_ids = []
+        
+        for doc, emb, meta, id in zip(documents, embeddings, metadatas, ids):
+            if id not in existing_ids:
+                new_docs.append(doc)
+                new_embeddings.append(emb)
+                new_metadatas.append(meta)
+                new_ids.append(id)
+        
+        # Solo agregar si hay documentos nuevos
+        if new_ids:
+            self.collection.add(
+                documents=new_docs,
+                embeddings=new_embeddings,
+                metadatas=new_metadatas,
+                ids=new_ids
+            )
         
         return ids
     

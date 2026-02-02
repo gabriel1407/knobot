@@ -97,6 +97,13 @@ class RAGService:
         Returns:
             Lista de documentos relevantes con sus scores.
         """
+        # Ajustar n_results según documentos disponibles
+        try:
+            total_docs = self.vector_store.collection.count()
+            n_results = min(n_results, total_docs) if total_docs > 0 else n_results
+        except:
+            pass  # Si falla, usar n_results original
+        
         query_embedding = self.embedding_service.encode_query(query)
         
         results = self.vector_store.search(

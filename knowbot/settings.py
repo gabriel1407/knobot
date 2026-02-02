@@ -28,6 +28,11 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
+# Permitir dominios de ngrok en desarrollo
+if DEBUG:
+    ALLOWED_HOSTS.append('.ngrok-free.dev')
+    ALLOWED_HOSTS.append('.ngrok.io')
+
 
 # Application definition
 

@@ -21,7 +21,7 @@ class ChatOrchestrator:
         
         # Configurar Gemini
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
     
     def process_message(
         self,

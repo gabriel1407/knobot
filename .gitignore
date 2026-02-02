@@ -6,3 +6,4 @@ db.sqlite3
 logs
 media
 env_django
+chroma_db
